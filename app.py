@@ -2,10 +2,11 @@ import streamlit as st
 import time
 from PIL import Image
 import re
+import requests
 
-# 1. PAGE SETUP (Saves beautifully on iPad screens)
+# 1. PAGE SETUP (Optimized for iPad screen responsive layout)
 st.set_page_config(
-    page_title="Family Private AI Server (Preview)",
+    page_title="Family Private AI Server (Cloud Preview)",
     page_icon="🏠",
     layout="wide"
 )
@@ -42,14 +43,14 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    st.caption("🔒 Secured Local Sandbox Mode")
+    st.caption("🌐 Cloud API Testing Sandbox Mode")
 
 # Get data for the currently active chat room
 current_chat = st.session_state.chats[st.session_state.active_chat]
 
 # 4. MAIN USER INTERFACE
 st.title(f"🏠 Family AI Hub: {st.session_state.active_chat}")
-st.write("Upload images/files and type prompts below. Memory is strictly locked to this chat room.")
+st.write("Ask real questions below. Memory and chat threads are strictly separated.")
 
 # Display the long-term memory archive for this specific chat
 if current_chat["memory_files"]:
@@ -62,20 +63,19 @@ for message in current_chat["messages"]:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
-# 5. MULTIMODAL UPLOADER (Takes images and files)
-uploaded_file = st.file_uploader("Upload an Image or Document to save to memory:", type=["png", "jpg", "jpeg", "pdf", "txt"])
+# 5. MULTIMODAL UPLOADER FOR MEMORY DECK
+uploaded_file = st.file_uploader("Upload a file to save to memory:", type=["png", "jpg", "jpeg", "pdf", "txt"])
 
 if uploaded_file:
     if uploaded_file.name not in current_chat["memory_files"]:
         current_chat["memory_files"].append(uploaded_file.name)
         st.success(f"💾 Added '{uploaded_file.name}' to {st.session_state.active_chat} memory database!")
         
-    # If it's an image, display a preview on your iPad
     if uploaded_file.type in ["image/png", "image/jpeg"]:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded File Preview", width=250)
 
-# 6. SMART RESPONSE ENGINE (Simulates the i9 & 5070 Ti)
+# 6. INTEGRATED REAL-RESPONSE AI CORE (Hugging Face Serverless)
 user_input = st.chat_input("Ask a question, request writing, or submit a math problem...")
 
 if user_input:
@@ -84,44 +84,65 @@ if user_input:
         st.write(user_input)
     current_chat["messages"].append({"role": "user", "content": user_input})
     
-    # Generate the AI response
+    # Process and build the AI response
     with st.chat_message("assistant"):
         response_placeholder = st.empty()
-        full_response = ""
+        final_answer = ""
         
-        # --- SMART DETECTORS ---
-        # Look for math equations (e.g., 2+2, 50*12, etc.)
+        # --- PRE-PROCESSING INTERCEPTORS ---
         math_match = re.search(r'(\d+[\+\-\*\/]\d+)', user_input)
+        memory_context = ""
         
-        # Decide what kind of mock answer to build based on the user's prompt
+        # If a file is uploaded, inject it into the AI's short-term memory layer
+        if current_chat["memory_files"]:
+            memory_context = f"[System Alert: The user has previously loaded a file named '{current_chat['memory_files'][-1]}' into this specific chat thread's memory storage bank. Keep this in mind if they ask about it.]\n\n"
+
+        # If a raw math equation is found, compute it using code first to prevent hallucinations
         if math_match:
             equation = math_match.group(1)
             try:
-                # Simulates the Core i9 evaluating the math expression perfectly
                 result = eval(equation)
-                mock_text = f"⚙️ **[i9 Math Core Triggered]**\n\nI detected a math calculation in your prompt: `{equation}`. \n\nI evaluated this using the server hardware sandbox, and the mathematically absolute answer is **{result}**. Let me know if you need a step-by-step breakdown!"
+                final_answer = f"⚙️ **[Local Math Engine Intercept]**\nI isolated the arithmetic query `{equation}` and executed it directly. The absolute result is **{result}**.\n\n"
             except:
-                mock_text = "I found a math equation but encountered a formatting error trying to solve it."
-                
-        elif "write" in user_input.lower() or "essay" in user_input.lower() or "research" in user_input.lower():
-            mock_text = f"📝 **[Writing & Research Core Triggered]**\n\nHere is an advanced research draft answering: *'{user_input}'*.\n\nBased on localized datasets, this topic requires deep analysis. \n\n1. **Introduction**: Expanding on the primary core concepts.\n2. **Historical Context**: Tracking patterns across data points.\n3. **Conclusion**: Summary of findings. \n\nThis paper has been logged to the filesystem archives."
-            
-        elif current_chat["memory_files"]:
-            # If a file was uploaded, the AI acknowledges its memory
-            last_file = current_chat["memory_files"][-1]
-            mock_text = f"🧠 **[Vector DB Memory Retrieval Triggered]**\n\nI searched the isolated memory bank for **{st.session_state.active_chat}**.\n\nI found the file you uploaded: `{last_file}`. Based on that document context, here is the text summary answering your question about: *'{user_input}'*."
-            
-        else:
-            # Default generic response
-            mock_text = f"✨ **[Standard Local Text Core Triggered]**\n\nThis is a real-time streamed response simulating your **NVIDIA RTX 5070 Ti** core layout.\n\nYou asked: '{user_input}'. Your home server will process this locally at roughly 85 tokens per second with total data privacy."
+                pass
 
-        # Simulate text streaming out word-by-word like ChatGPT
-        for word in mock_text.split(" "):
-            full_response += word + " "
-            time.sleep(0.06)  # Speeds up the typing animation
-            response_placeholder.markdown(full_response + "▌")
+        # Call the live cloud inference API
+        try:
+            # We target a highly accurate open-source model: Google's Gemma-2-9b-it
+            API_URL = "https://huggingface.co"
             
-        response_placeholder.markdown(full_response)
+            # Format the system prompts and memory injection blocks
+            payload = {
+                "inputs": f"{memory_context}You are a powerful local home server AI. Answer the following question accurately and directly: {user_input}",
+                "parameters": {"max_new_tokens": 500, "return_full_text": False}
+            }
+            
+            # Request the cloud data stack
+            response = requests.post(API_URL, json=payload, timeout=15)
+            
+            if response.status_code == 200:
+                api_result = response.json()
+                if isinstance(api_result, list) and "generated_text" in api_result[0]:
+                    raw_ai_text = api_result[0]["generated_text"]
+                else:
+                    raw_ai_text = str(api_result)
+                
+                # Append the real text response to our local math verification if present
+                final_answer += raw_ai_text
+            else:
+                final_answer += "⚠️ The live open-source cloud servers are temporarily busy loading your model. Please tap enter again in a few seconds!"
+                
+        except Exception as e:
+            final_answer += f"⚠️ Network Connection Error: Could not reach the AI core. Details: {str(e)}"
+
+        # Print the final result text smoothly word-by-word like ChatGPT
+        current_stream = ""
+        for word in final_answer.split(" "):
+            current_stream += word + " "
+            time.sleep(0.03)
+            response_placeholder.markdown(current_stream + "▌")
+            
+        response_placeholder.markdown(current_stream)
         
-    # Commit assistant response to the isolated chat history
-    current_chat["messages"].append({"role": "assistant", "content": full_response})
+    # Commit assistant response to the isolated chat history array
+    current_chat["messages"].append({"role": "assistant", "content": current_stream})
