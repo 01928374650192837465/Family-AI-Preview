@@ -43,7 +43,7 @@ with st.sidebar:
         st.rerun()
 
     st.divider()
-    st.caption("🌐 Cloud API Testing Sandbox Mode")
+    st.caption("🌐 High-Availability OpenRouter Sandbox")
 
 # Get data for the currently active chat room
 current_chat = st.session_state.chats[st.session_state.active_chat]
@@ -75,7 +75,7 @@ if uploaded_file:
         image = Image.open(uploaded_file)
         st.image(image, caption="Uploaded File Preview", width=250)
 
-# 6. INTEGRATED REAL-RESPONSE AI CORE (Hugging Face Serverless)
+# 6. INTEGRATED REAL-RESPONSE AI CORE (OpenRouter High-Availability Network)
 user_input = st.chat_input("Ask a question, request writing, or submit a math problem...")
 
 if user_input:
@@ -93,11 +93,10 @@ if user_input:
         math_match = re.search(r'(\d+[\+\-\*\/]\d+)', user_input)
         memory_context = ""
         
-        # If a file is uploaded, inject it into the AI's short-term memory layer
         if current_chat["memory_files"]:
-            memory_context = f"[System Alert: The user has previously loaded a file named '{current_chat['memory_files'][-1]}' into this specific chat thread's memory storage bank. Keep this in mind if they ask about it.]\n\n"
+            memory_context = f"[System Context: The user has loaded a file named '{current_chat['memory_files'][-1]}' into memory.]\n"
 
-        # If a raw math equation is found, compute it using code first to prevent hallucinations
+        # Math engine execution loop (Intel Core i9 Simulation)
         if math_match:
             equation = math_match.group(1)
             try:
@@ -106,40 +105,39 @@ if user_input:
             except:
                 pass
 
-        # Call the live cloud inference API
+        # Call the live high-speed OpenRouter API
         try:
-            # We target a highly accurate open-source model: Google's Gemma-2-9b-it
-            API_URL = "https://huggingface.co"
+            # Targets OpenRouter's high-speed, free-tier distributed cluster
+            API_URL = "https://openrouter.ai"
             
-            # Format the system prompts and memory injection blocks
-            payload = {
-                "inputs": f"{memory_context}You are a powerful local home server AI. Answer the following question accurately and directly: {user_input}",
-                "parameters": {"max_new_tokens": 500, "return_full_text": False}
+            headers = {
+                "Content-Type": "application/json"
             }
             
-            # Request the cloud data stack
-            response = requests.post(API_URL, json=payload, timeout=15)
+            payload = {
+                "model": "meta-llama/llama-3-8b-instruct:free",
+                "messages": [
+                    {"role": "user", "content": f"{memory_context}{user_input}"}
+                ]
+            }
+            
+            response = requests.post(API_URL, json=payload, headers=headers, timeout=15)
             
             if response.status_code == 200:
                 api_result = response.json()
-                if isinstance(api_result, list) and "generated_text" in api_result[0]:
-                    raw_ai_text = api_result[0]["generated_text"]
-                else:
-                    raw_ai_text = str(api_result)
-                
-                # Append the real text response to our local math verification if present
+                raw_ai_text = api_result["choices"][0]["message"]["content"]
                 final_answer += raw_ai_text
             else:
-                final_answer += "⚠️ The live open-source cloud servers are temporarily busy loading your model. Please tap enter again in a few seconds!"
+                final_answer += f"⚠️ Server communication delay. Error Code: {response.status_code}. Please try submitting again!"
                 
         except Exception as e:
-            final_answer += f"⚠️ Network Connection Error: Could not reach the AI core. Details: {str(e)}"
+            final_answer += f"⚠️ Network Connection Error: Could not reach the cluster. Details: {str(e)}"
 
         # Print the final result text smoothly word-by-word like ChatGPT
         current_stream = ""
         for word in final_answer.split(" "):
             current_stream += word + " "
-            time.sleep(0.03)
+            time.sleep(0.02)
             response_placeholder.markdown(current_stream + "▌")
             
         response_placeholder.markdown(current_stream)
