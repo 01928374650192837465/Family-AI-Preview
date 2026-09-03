@@ -1,181 +1,127 @@
 import streamlit as st
-import uuid
-import re
-import traceback
-import sys
-from io import StringIO
+import time
 from PIL import Image
+import re
 
-# Initialize Session State Variables
+# 1. PAGE SETUP (Saves beautifully on iPad screens)
+st.set_page_config(
+    page_title="Family Private AI Server (Preview)",
+    page_icon="🏠",
+    layout="wide"
+)
+
+# 2. STATE MANAGEMENT (Handles multiple chats and memory)
 if "chats" not in st.session_state:
     st.session_state.chats = {
-        "Default Chat": {
-            "id": "Default Chat",
-            "messages": [],
-            "mock_memory": []
-        }
+        "Chat 1": {"messages": [], "memory_files": []}
     }
-if "current_chat" not in st.session_state:
-    st.session_state.current_chat = "Default Chat"
 
-# Streamlit App Configurations
-st.set_page_config(page_title="Family iPad AI Workstation (Mock Edition)", layout="wide")
+if "active_chat" not in st.session_state:
+    st.session_state.active_chat = "Chat 1"
 
-# UI Styling
-st.markdown("""
-<style>
-    .reportview-container { background: #121212; }
-    .stSidebar { background-color: #1e1e1e !important; }
-    div.stButton > button:first-child {
-        background-color: #2e7d32; color: white; border-radius: 8px;
-    }
-    .chat-user { background-color: #2a2a2a; padding: 15px; border-radius: 10px; margin-bottom: 10px; }
-    .chat-ai { background-color: #1e3a2f; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 5px solid #2e7d32; }
-</style>
-""", unsafe_allow_html=True)
-
-# SIDEBAR: Multi-Chat Space Manager
-st.sidebar.title("ð§¬ Family AI Workspace")
-st.sidebar.subheader("Isolated Memory Slots")
-
-# Create a New Chat Thread Button
-if st.sidebar.button("â Initialize New Isolated Chat"):
-    new_chat_id = f"Workspace-{str(uuid.uuid4())[:8]}"
-    st.session_state.chats[new_chat_id] = {
-        "id": new_chat_id,
-        "messages": [],
-        "mock_memory": []
-    }
-    st.session_state.current_chat = new_chat_id
-    st.rerun()
-
-# Select Active Chat Thread
-chat_list = list(st.session_state.chats.keys())
-active_chat = st.sidebar.radio("Active Conversations:", chat_list, index=chat_list.index(st.session_state.current_chat))
-st.session_state.current_chat = active_chat
-
-# Display current memory profile summary in sidebar
-st.sidebar.markdown("---")
-st.sidebar.markdown(f"**ð Current Thread:** `{active_chat}`")
-st.sidebar.markdown(f"**ð¾ Memory Items Captured:** `{len(st.session_state.chats[active_chat]['mock_memory'])}`")
-
-# MAIN CHAT APPLICATION WINDOW
-st.title("ð§  Elite Home AI Station (iPad Preview)")
-st.caption("Standalone Interface Validation Sandbox - Local Network & Cloud Deployment Ready")
-
-# Retrieve data profile for current chat slot
-current_workspace = st.session_state.chats[active_chat]
-
-# Document & Image Processing Input Hub
-st.markdown("### ð¥ Advanced Knowledge Injection File Deck")
-uploaded_files = st.file_uploader("Inject Research Documents (PDF/TXT) or Visual Media Matrix (PNG/JPG):", accept_multiple_files=True)
-
-if uploaded_files:
-    for f in uploaded_files:
-        file_name = f.name
-        # Avoid duplicate ingestion tracking in mock storage
-        if not any(m['name'] == file_name for m in current_workspace['mock_memory']):
-            file_type = file_name.split('.')[-1].lower()
+# 3. SIDEBAR (For creating separate chat rooms)
+with st.sidebar:
+    st.title("⚡ AI Server Control")
+    st.subheader("Family Chat Rooms")
+    
+    # Create a new, isolated chat room
+    new_chat_name = st.text_input("Create New Chat:", placeholder="e.g., Math Homework, Research")
+    if st.button("➕ Add Chat") and new_chat_name.strip():
+        if new_chat_name not in st.session_state.chats:
+            st.session_state.chats[new_chat_name] = {"messages": [], "memory_files": []}
+            st.session_state.active_chat = new_chat_name
+            st.rerun()
             
-            if file_type in ['png', 'jpg', 'jpeg', 'webp']:
-                current_workspace['mock_memory'].append({"name": file_name, "type": "Image Source Matrix"})
-                st.toast(f"â Embedded Visual Array Matrix: {file_name}", icon="ð¼ï¸")
-            else:
-                try:
-                    file_contents = f.read().decode("utf-8", errors="ignore")[:1000] # reading text snippet
-                    current_workspace['mock_memory'].append({"name": file_name, "type": f"Research Document Token Bank ({len(file_contents)} chars loaded)"})
-                    st.toast(f"â Embedded Text Knowledge Matrix: {file_name}", icon="ð")
-                except Exception:
-                    current_workspace['mock_memory'].append({"name": file_name, "type": "Generic Data Matrix Array"})
-                    st.toast(f"â Ingested Context Block: {file_name}", icon="ð¥")
-
-# Render active chat archive logs inside custom workspace containers
-for msg in current_workspace['messages']:
-    if msg["role"] == "user":
-        with st.chat_message("user"):
-            st.markdown(f"<div class='chat-user'><b>ð¨âð©âð¦ Family Member:</b><br>{msg['content']}</div>", unsafe_allow_html=True)
-            if "images" in msg and msg["images"]:
-                for img in msg["images"]:
-                    st.image(img, caption="Injected Image Viewport Context", width=300)
-    else:
-        with st.chat_message("assistant"):
-            st.markdown(f"<div class='chat-ai'><b>ð¤ Core Logic Unit:</b><br>{msg['content']}</div>", unsafe_allow_html=True)
-
-# User Chat Prompt Interface Controller
-if prompt := st.chat_input("Enter multi-step logic problem or prompt context..."):
+    st.divider()
     
-    # Check for attached images in file deck to match workspace submission criteria
-    attached_images = []
-    if uploaded_files:
-        for f in uploaded_files:
-            if f.name.split('.')[-1].lower() in ['png', 'jpg', 'jpeg', 'webp']:
-                try:
-                    attached_images.append(Image.open(f))
-                except Exception:
-                    pass
+    # Dropdown to switch between the isolated chats
+    chat_list = list(st.session_state.chats.keys())
+    selected_chat = st.selectbox("Switch Active Chat:", chat_list, index=chat_list.index(st.session_state.active_chat))
+    if selected_chat != st.session_state.active_chat:
+        st.session_state.active_chat = selected_chat
+        st.rerun()
 
-    # Record family prompt profile globally inside isolated workspace container
-    current_workspace['messages'].append({"role": "user", "content": prompt, "images": attached_images})
-    
+    st.divider()
+    st.caption("🔒 Secured Local Sandbox Mode")
+
+# Get data for the currently active chat room
+current_chat = st.session_state.chats[st.session_state.active_chat]
+
+# 4. MAIN USER INTERFACE
+st.title(f"🏠 Family AI Hub: {st.session_state.active_chat}")
+st.write("Upload images/files and type prompts below. Memory is strictly locked to this chat room.")
+
+# Display the long-term memory archive for this specific chat
+if current_chat["memory_files"]:
+    with st.expander("📚 Saved Memories for this Chat"):
+        for f in current_chat["memory_files"]:
+            st.write(f"• {f}")
+
+# Display past chat history
+for message in current_chat["messages"]:
+    with st.chat_message(message["role"]):
+        st.write(message["content"])
+
+# 5. MULTIMODAL UPLOADER (Takes images and files)
+uploaded_file = st.file_uploader("Upload an Image or Document to save to memory:", type=["png", "jpg", "jpeg", "pdf", "txt"])
+
+if uploaded_file:
+    if uploaded_file.name not in current_chat["memory_files"]:
+        current_chat["memory_files"].append(uploaded_file.name)
+        st.success(f"💾 Added '{uploaded_file.name}' to {st.session_state.active_chat} memory database!")
+        
+    # If it's an image, display a preview on your iPad
+    if uploaded_file.type in ["image/png", "image/jpeg"]:
+        image = Image.open(uploaded_file)
+        st.image(image, caption="Uploaded File Preview", width=250)
+
+# 6. SMART RESPONSE ENGINE (Simulates the i9 & 5070 Ti)
+user_input = st.chat_input("Ask a question, request writing, or submit a math problem...")
+
+if user_input:
+    # Display user's question immediately
     with st.chat_message("user"):
-        st.markdown(f"<div class='chat-user'><b>ð¨âð©âð¦ Family Member:</b><br>{prompt}</div>", unsafe_allow_html=True)
-        for img in attached_images:
-            st.image(img, caption="Injected Image Viewport Context", width=300)
-
-    # Initialize Execution AI Output Loop Sandbox
+        st.write(user_input)
+    current_chat["messages"].append({"role": "user", "content": user_input})
+    
+    # Generate the AI response
     with st.chat_message("assistant"):
         response_placeholder = st.empty()
+        full_response = ""
         
-        # MOCK BRAIN ARCHITECTURE STRATEGY: Generate accurate responses dynamically simulating an i9/5070ti server response loop
-        ai_response_text = ""
+        # --- SMART DETECTORS ---
+        # Look for math equations (e.g., 2+2, 50*12, etc.)
+        math_match = re.search(r'(\d+[\+\-\*\/]\d+)', user_input)
         
-        # 1. Check for Complex Programmatic Mathematical Equations Context Execution (The i9 Processor Intercept Simulation)
-        math_match = re.search(r"calculate|solve|math|compute|[\+\-\*/\^]", prompt.lower())
-        code_execution_log = ""
-        
+        # Decide what kind of mock answer to build based on the user's prompt
         if math_match:
-            code_execution_log += "\n\n`[â¡ Core i9 Thread Execution Monitor: Sandbox Safe Mode Loaded]`\n"
-            # Attempt basic extraction of potential formula digits to prove parsing capability
-            numbers_found = re.findall(r"\d+[\+\-\*/\s\d\.]*", prompt)
-            if numbers_found:
-                formula = numbers_found[0].strip()
-                try:
-                    # Python simulation runtime check
-                    result = eval(formula)
-                    code_execution_log += f"`[âï¸ Core Evaluated Formula Matrix]: {formula} = {result}`\n"
-                except Exception as e:
-                    code_execution_log += f"`[â Logical Core Arithmetic Parsing Interruption]: {str(e)}`\n"
-            else:
-                code_execution_log += "`[âï¸ Core Math Core Status]: Multi-step evaluation logic passed clean to runtime library blocks.`\n"
+            equation = math_match.group(1)
+            try:
+                # Simulates the Core i9 evaluating the math expression perfectly
+                result = eval(equation)
+                mock_text = f"⚙️ **[i9 Math Core Triggered]**\n\nI detected a math calculation in your prompt: `{equation}`. \n\nI evaluated this using the server hardware sandbox, and the mathematically absolute answer is **{result}**. Let me know if you need a step-by-step breakdown!"
+            except:
+                mock_text = "I found a math equation but encountered a formatting error trying to solve it."
+                
+        elif "write" in user_input.lower() or "essay" in user_input.lower() or "research" in user_input.lower():
+            mock_text = f"📝 **[Writing & Research Core Triggered]**\n\nHere is an advanced research draft answering: *'{user_input}'*.\n\nBased on localized datasets, this topic requires deep analysis. \n\n1. **Introduction**: Expanding on the primary core concepts.\n2. **Historical Context**: Tracking patterns across data points.\n3. **Conclusion**: Summary of findings. \n\nThis paper has been logged to the filesystem archives."
+            
+        elif current_chat["memory_files"]:
+            # If a file was uploaded, the AI acknowledges its memory
+            last_file = current_chat["memory_files"][-1]
+            mock_text = f"🧠 **[Vector DB Memory Retrieval Triggered]**\n\nI searched the isolated memory bank for **{st.session_state.active_chat}**.\n\nI found the file you uploaded: `{last_file}`. Based on that document context, here is the text summary answering your question about: *'{user_input}'*."
+            
+        else:
+            # Default generic response
+            mock_text = f"✨ **[Standard Local Text Core Triggered]**\n\nThis is a real-time streamed response simulating your **NVIDIA RTX 5070 Ti** core layout.\n\nYou asked: '{user_input}'. Your home server will process this locally at roughly 85 tokens per second with total data privacy."
 
-        # 2. Check for RAG Memory Injection Context Execution (The ChromaDB Vector Search Simulation)
-        memory_context_log = ""
-        if current_workspace['mock_memory']:
-            memory_context_log += "\n\n`[ð ChromaDB Spatial Vector Storage Lookup Monitor]`\n"
-            memory_context_log += f"`[ð¾ Query Match Status]: RAG isolated thread database retrieved context entries from the active thread history slot ({len(current_workspace['mock_memory'])} sources active). Workspace validation successful.`\n"
-            for source in current_workspace['mock_memory']:
-                memory_context_log += f"- `[Context Item Injected]`: {source['name']} ({source['type']})\n"
-
-        # 3. Assemble Custom Stream Output
-        base_mock_response = (
-            f"This is a verified text-only diagnostic simulation running securely on your iPad viewport framework. "
-            f"Your production-grade workspace configurations remain completely preserved for full-scale deployment.\n\n"
-            f"**ð§¬ Operational Performance Telemetry:**\n"
-            f"- **Active Logical Thread Workspace Container:** `{active_chat}`\n"
-            f"- **System Routing Node Matrix Host Target:** `0.0.0.0:3000`\n"
-            f"- **Simulated Edge Accelerator Core:** NVIDIA RTX 5070 Ti Architecture Layer\n\n"
-            f"**ð¬ Input Context Assessment:**\n"
-            f"I have received your instruction payload: *\"{prompt}\"*. "
-        )
+        # Simulate text streaming out word-by-word like ChatGPT
+        for word in mock_text.split(" "):
+            full_response += word + " "
+            time.sleep(0.06)  # Speeds up the typing animation
+            response_placeholder.markdown(full_response + "▌")
+            
+        response_placeholder.markdown(full_response)
         
-        if attached_images:
-            base_mock_response += f"I have processed your **{len(attached_images)} visual media component files** utilizing hardware tensor pipelines. Space alignment mapping looks accurate. "
-        
-        ai_response_text = base_mock_response + memory_context_log + code_execution_log
-        
-        # Simulating stream generation speed metrics 
-        response_placeholder.markdown(f"<div class='chat-ai'><b>ð¤ Core Logic Unit:</b><br>{ai_response_text}</div>", unsafe_allow_html=True)
-        
-        # Save final state data
-        current_workspace['messages'].append({"role": "assistant", "content": ai_response_text})
-        st.rerun()
+    # Commit assistant response to the isolated chat history
+    current_chat["messages"].append({"role": "assistant", "content": full_response})
